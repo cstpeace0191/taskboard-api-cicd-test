@@ -40,4 +40,8 @@ JSON
     || echo "  branch policy: main (already set)"
 done
 
-echo "done. 확인: Settings → Rules / Environments"
+# 3) Dependabot alerts 켜기 → dependency graph 활성화 (없으면 security.yml의 dependency-review가
+#    "Dependency review is not supported on this repository"로 실패)
+gh api -X PUT "repos/$REPO/vulnerability-alerts" --silent && echo "vulnerability alerts + dependency graph: on"
+
+echo "done. 확인: Settings → Rules / Environments / Code security"
