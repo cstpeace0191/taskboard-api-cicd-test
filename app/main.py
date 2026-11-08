@@ -74,6 +74,7 @@ def update_task(task_id: int, patch: TaskUpdate) -> Task:
 def delete_task(task_id: int) -> Response:
     del TASKS[task_id]
     return Response(status_code=204)
-import os
-def  shout( text:str )->str :
+
+
+def shout(text: str) -> str:
     return text.upper()
