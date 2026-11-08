@@ -7,7 +7,7 @@
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 app = FastAPI(title="TaskBoard API", version="0.2.0")
 
@@ -22,9 +22,19 @@ class Task(BaseModel):
 
 
 class TaskUpdate(BaseModel):
-    title: str | None = None
+    """PATCH 본문. 생략한 필드는 그대로 두고, 보낸 필드는 Task와 같은 규칙으로 검증한다."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     done: bool | None = None
     priority: Priority | None = None
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def reject_explicit_null(cls, value: object) -> object:
+        # 기본값(None)은 검증되지 않으므로, 여기서는 클라이언트가 null을 직접 보낸 경우만 걸린다.
+        if value is None:
+            raise ValueError("null is not allowed; omit the field instead")
+        return value
 
 
 TASKS: dict[int, Task] = {}

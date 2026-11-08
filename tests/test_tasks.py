@@ -76,6 +76,37 @@ def test_update_task():
     assert r.json() == {"id": 1, "title": "new", "done": True, "priority": "medium"}
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"title": ""},
+        {"title": "x" * 201},
+        {"title": None},
+        {"priority": "urgent"},
+        {"priority": None},
+        {"done": None},
+        {"title": "", "done": True},
+    ],
+)
+def test_update_invalid_payload_returns_422_and_keeps_data(payload: dict) -> None:
+    make(1, "a", priority="high")
+    r = client.patch("/tasks/1", json=payload)
+    assert r.status_code == 422
+    assert client.get("/tasks/1").json() == {
+        "id": 1,
+        "title": "a",
+        "done": False,
+        "priority": "high",
+    }
+
+
+def test_update_title_max_length_is_allowed() -> None:
+    make(1, "a")
+    r = client.patch("/tasks/1", json={"title": "x" * 200})
+    assert r.status_code == 200
+    assert r.json()["title"] == "x" * 200
+
+
 def test_update_missing_task_returns_404():
     assert client.patch("/tasks/42", json={"done": True}).status_code == 404
 
