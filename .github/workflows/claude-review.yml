@@ -8,8 +8,12 @@ on:
 
 jobs:
   review:
-    # draft 제외, 봇(Dependabot 등) PR 제외: 봇 행위자는 action이 거부하고 시크릿도 전달되지 않음
-    if: github.event.pull_request.draft == false && github.event.pull_request.user.type != 'Bot'
+    # draft 제외, Dependabot PR 제외 (Dependabot 실행에는 시크릿이 전달되지 않음).
+    # Claude가 만든 PR(Lab 5)과 Claude가 push한 커밋(autofix)은 리뷰해야 하므로 봇 전체를 막지 않는다.
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -28,6 +32,8 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true   # PR에 진행 체크리스트 댓글 표시
+          # claude[bot]이 push한 커밋(synchronize)도 리뷰. 리뷰는 커밋을 만들지 않으므로 루프 없음
+          allowed_bots: "claude[bot]"
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
