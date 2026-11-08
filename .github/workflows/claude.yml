@@ -31,10 +31,10 @@ jobs:
       id-token: write   # Claude GitHub App 인증
       actions: read     # PR의 CI 결과 조회
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
