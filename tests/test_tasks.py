@@ -84,3 +84,17 @@ def test_delete_task():
     make(1)
     assert client.delete("/tasks/1").status_code == 204
     assert client.get("/tasks/1").status_code == 404
+
+
+def test_delete_missing_task_returns_404():
+    r = client.delete("/tasks/999")
+    assert r.status_code == 404
+    assert r.json() == {"detail": "not found"}
+
+
+def test_delete_twice_returns_404_second_time():
+    make(1)
+    assert client.delete("/tasks/1").status_code == 204
+    r = client.delete("/tasks/1")
+    assert r.status_code == 404
+    assert r.json() == {"detail": "not found"}
