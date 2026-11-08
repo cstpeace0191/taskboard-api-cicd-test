@@ -1,0 +1,5 @@
+# 리뷰 담당자 지정. OWNER를 본인(또는 팀) GitHub ID로 바꾼 뒤 주석을 해제하세요.
+# 브랜치 보호에서 "Require review from Code Owners"를 켜면 Claude가 만든 PR도 사람 승인이 필요합니다.
+# *                    @OWNER
+# /.github/            @OWNER
+# /scripts/            @OWNER

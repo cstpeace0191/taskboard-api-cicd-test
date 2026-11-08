@@ -1,0 +1,16 @@
+[
+  {"name": "bug", "color": "d73a4a", "description": "의도와 다르게 동작함"},
+  {"name": "enhancement", "color": "a2eeef", "description": "새 기능 또는 개선"},
+  {"name": "question", "color": "d876e3", "description": "질문·논의"},
+  {"name": "duplicate", "color": "cfd3d7", "description": "이미 열린 이슈와 같음"},
+  {"name": "area:api", "color": "1d76db", "description": "app/ 엔드포인트"},
+  {"name": "area:tests", "color": "0e8a16", "description": "tests/ 테스트"},
+  {"name": "area:docs", "color": "c5def5", "description": "문서·README"},
+  {"name": "P1", "color": "b60205", "description": "긴급: 500 오류·데이터 손상"},
+  {"name": "P2", "color": "fbca04", "description": "보통: 잘못된 결과"},
+  {"name": "P3", "color": "c2e0c6", "description": "낮음: 개선·문서"},
+  {"name": "needs-triage", "color": "ededed", "description": "분류 대기 (Claude 분류 워크플로가 처리)"},
+  {"name": "agent-ready", "color": "5319e7", "description": "사람이 붙임: Claude 구현 워크플로 시작"},
+  {"name": "ci-autofix", "color": "0052cc", "description": "PR에 붙이면 CI 실패 시 Claude가 수정 커밋 (1회)"},
+  {"name": "dependencies", "color": "0366d6", "description": "Dependabot 의존성 업데이트"}
+]

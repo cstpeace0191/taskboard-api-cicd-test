@@ -1,0 +1,4 @@
+# runtime dependencies installed into the container image (see Dockerfile)
+# fastapi 0.162 pulls starlette 1.x (fixes PYSEC-2026-248/249 found by pip-audit in 0.115)
+fastapi==0.162.*
+uvicorn[standard]==0.54.*

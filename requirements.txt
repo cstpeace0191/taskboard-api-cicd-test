@@ -1,0 +1,7 @@
+# dev / CI: runtime + test and lint tools
+# (keep comments ASCII: pip reads this file with the OS locale on Windows)
+-r requirements-runtime.txt
+httpx==0.28.*          # required by TestClient
+pytest==9.2.*
+pytest-cov==7.1.*
+ruff==0.17.*

@@ -1,0 +1,3 @@
+# 웹 UI에서는 템플릿(버그/기능)으로만 이슈를 만들게 한다.
+# gh issue create --body-file 은 이 설정과 관계없이 동작한다 (scripts/seed_issues.*).
+blank_issues_enabled: false

@@ -1,0 +1,108 @@
+# Release: vX.Y.Z 태그를 push하면 버전 확인 → 테스트 → 버전 태그 이미지 push → GitHub Release 생성
+# (선택) 저장소 변수 CLAUDE_RELEASE_NOTES=true 이면 Claude가 릴리스 노트를 한국어 요약으로 다듬는다.
+name: Release
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Tag must match pyproject version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VER=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "tag=$TAG pyproject=$VER"
+          [[ "$TAG" == "$VER" ]] || { echo "::error::tag v$TAG != pyproject version $VER"; exit 1; }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: ruff check . && ruff format --check . && pytest --cov=app --cov-fail-under=80
+
+  image:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Image name (소문자)
+        id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.name.outputs.image }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+
+  github-release:
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Create release with generated notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes \
+            --title "TaskBoard API $GITHUB_REF_NAME"
+
+  claude-notes:
+    needs: github-release
+    if: vars.CLAUDE_RELEASE_NOTES == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            릴리스 ${{ github.ref_name }} 의 노트를 다듬어라.
+            1. `gh release view ${{ github.ref_name }}` 로 자동 생성된 노트를 읽는다.
+            2. 노트에 나온 PR들을 `gh pr view <번호>` 로 확인한다.
+            3. 맨 위에 한국어 요약을 추가한다: 새 기능 / 버그 수정 / Breaking change / 컨테이너 이미지 태그.
+               PR 본문에 "Breaking change"가 있으면 반드시 별도 섹션으로 강조한다.
+            4. 자동 생성된 원래 목록은 아래에 그대로 둔다.
+            5. 결과를 notes.md 에 쓰고 `gh release edit ${{ github.ref_name }} --notes-file notes.md` 로 반영한다.
+          claude_args: |
+            --max-turns 12
+            --allowedTools "Read,Write,Bash(gh release view:*),Bash(gh release edit:*),Bash(gh pr view:*),Bash(git log:*)"

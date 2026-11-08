@@ -1,0 +1,38 @@
+# 자동화 모드: 사람이 이슈에 'agent-ready' 라벨을 붙이면 Claude가 /fix-issue 로 draft PR을 만든다.
+# 라벨은 쓰기 권한자만 붙일 수 있으므로 1차 통제 역할을 한다.
+# 프롬프트에는 이슈 번호만 넘긴다 (제목·본문을 직접 넣으면 프롬프트 인젝션 위험).
+name: Claude Implement
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  implement:
+    if: github.event.label.name == 'agent-ready'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    concurrency: claude-issue-${{ github.event.issue.number }}
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # github_token 을 넘기지 않음 → Claude GitHub App 토큰으로 push·PR 생성
+          #  → 기본 GITHUB_TOKEN과 달리 생성된 PR에서도 CI가 실행된다
+          prompt: "/fix-issue ${{ github.event.issue.number }}"
+          claude_args: |
+            --max-turns 30
+            --allowedTools "Read,Edit,Write,Bash(gh issue view:*),Bash(gh pr create:*),Bash(git:*),Bash(pytest:*),Bash(ruff:*)"

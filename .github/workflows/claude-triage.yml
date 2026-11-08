@@ -1,0 +1,31 @@
+# 자동화 모드: 새 이슈가 열리면 Claude가 라벨(유형·영역·우선순위)만 붙인다.
+# 권한 최소화: contents read + issues write, 셸은 래퍼 스크립트 2개만 허용.
+name: Claude Issue Triage
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      # Windows에서 커밋하면 실행 비트가 빠지므로 러너에서 다시 설정
+      - run: chmod +x scripts/gh-readonly.sh scripts/edit-issue-labels.sh
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # 작업 토큰은 이 job의 권한(issues: write)으로 제한되고 job이 끝나면 만료된다
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # 쓰기 권한이 없는 외부 사용자의 이슈도 분류하려면 (공개 저장소):
+          # allowed_non_write_users: "*"
+          prompt: "/label-issue REPO: ${{ github.repository }} ISSUE_NUMBER: ${{ github.event.issue.number }}"
+          claude_args: |
+            --max-turns 8
+            --allowedTools "Bash(./scripts/gh-readonly.sh:*),Bash(./scripts/edit-issue-labels.sh:*)"

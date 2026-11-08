@@ -1,0 +1,112 @@
+# CD: main에 병합되면 이미지 빌드·push(GHCR) → staging 배포·스모크 테스트 → (승인) → production 승격
+#
+# 이 실습의 '배포'는 클라우드 없이 동작하도록 구성했다.
+#  - staging   : 러너에서 방금 push한 이미지를 그대로 받아 실행하고 스모크 테스트
+#  - production: 같은 이미지 digest에 :production 태그를 붙여 승격 (재빌드 없음)
+# 실제 환경(Cloud Run, GKE+Argo CD 등)으로 바꿀 때는 각 job의 'Deploy' 단계만 교체한다.
+name: CD
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-main          # 배포는 한 번에 하나씩, 진행 중인 배포는 취소하지 않음
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Image name (소문자)
+        id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.name.outputs.image }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=main
+      - id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Summary
+        run: |
+          echo "### Image pushed" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`${{ steps.name.outputs.image }}@${{ steps.push.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  staging:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: staging
+    permissions:
+      contents: read
+      packages: read
+    env:
+      REF: ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy (러너에서 실행)
+        run: docker run -d --name taskboard -p 8000:8000 "$REF"
+      - name: Smoke test
+        run: bash scripts/smoke_test.sh http://127.0.0.1:8000
+      - name: Logs on failure
+        if: failure()
+        run: docker logs taskboard || true
+
+  production:
+    needs: [build, staging]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production   # 저장소 설정에서 Required reviewers를 걸면 여기서 승인 대기
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ${{ needs.build.outputs.image }}
+      DIGEST: ${{ needs.build.outputs.digest }}
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Promote (같은 digest에 production 태그)
+        run: |
+          docker buildx imagetools create --tag "$IMAGE:production" "$IMAGE@$DIGEST"
+          docker buildx imagetools inspect "$IMAGE:production"
+          echo "### Promoted to production" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$IMAGE:production\` → \`$DIGEST\`" >> "$GITHUB_STEP_SUMMARY"
