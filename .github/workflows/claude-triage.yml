@@ -13,7 +13,7 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
       # Windows에서 커밋하면 실행 비트가 빠지므로 러너에서 다시 설정
