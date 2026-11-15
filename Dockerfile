@@ -1,5 +1,5 @@
 # TaskBoard API 컨테이너 이미지 (CD: .github/workflows/cd.yml, release.yml)
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
